@@ -1,10 +1,9 @@
--- Drop existing tables if they exist
+DROP TABLE IF EXISTS count_history CASCADE;
 DROP TABLE IF EXISTS lifelines CASCADE;
 DROP TABLE IF EXISTS sections CASCADE;
 DROP TABLE IF EXISTS projects CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 
--- Users table
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
@@ -13,7 +12,6 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Projects table
 CREATE TABLE projects (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -23,7 +21,6 @@ CREATE TABLE projects (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Sections table
 CREATE TABLE sections (
     id SERIAL PRIMARY KEY,
     project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -37,7 +34,6 @@ CREATE TABLE sections (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Lifelines table - safety points for frogging
 CREATE TABLE lifelines (
     id SERIAL PRIMARY KEY,
     section_id INTEGER NOT NULL REFERENCES sections(id) ON DELETE CASCADE,
