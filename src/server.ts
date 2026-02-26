@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import pool from './config/database';
 import authRoutes from './routes/authRoutes';
+import projectRoutes from './routes/projectRoutes';
 
 dotenv.config();
 
@@ -15,6 +16,7 @@ app.use(express.json());
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/projects', projectRoutes);
 
 // Test route
 app.get('/api/test', (req: Request, res: Response) => {

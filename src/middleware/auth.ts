@@ -24,8 +24,8 @@ export const authenticateToken = (
             throw new Error('JWT_SECRET not configured');
         }
 
-        const decoded = jwt.verify(token, secret) as { userID: number };
-        req.userId = decoded.userID;
+        const decoded = jwt.verify(token, secret) as { userId: number };
+        req.userId = decoded.userId;
         next();
     } catch (error) {
         return res.status(403).json({ error: 'Invalid or expired token' });
