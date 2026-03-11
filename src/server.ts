@@ -5,6 +5,7 @@ import pool from './config/database';
 import authRoutes from './routes/authRoutes';
 import projectRoutes from './routes/projectRoutes';
 import sectionRoutes from './routes/sectionRoutes';
+import lifelineRoutes from './routes/lifelineRoutes';
 
 dotenv.config();
 
@@ -19,6 +20,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/sections', sectionRoutes);
+app.use('/api/lifelines', lifelineRoutes);
 
 // Test route
 app.get('/api/test', (req: Request, res: Response) => {
