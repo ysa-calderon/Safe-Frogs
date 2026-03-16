@@ -95,7 +95,7 @@ export const createLifeline = async (req: AuthRequest, res: Response) => {
             + 'returning *',
             [
                 sectionId,
-                name || 'Lifeline at Row ${section.current_row}',
+                name || `Lifeline at Row ${section.current_row}`,
                 section.current_row,
                 currentStitches,
                 notes || null,
