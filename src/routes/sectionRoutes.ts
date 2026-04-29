@@ -6,6 +6,8 @@ import {
     updateSection,
     deleteSection,
     incrementCounter,
+    undoCounter,
+    frogByAmount,
 } from '../controllers/sectionController';
 import { authenticateToken } from '../middleware/auth';
 
@@ -23,7 +25,9 @@ router.get('/:id', getSectionById);
 router.put('/:id', updateSection);
 router.delete('/:id', deleteSection);
 
-// Counter increment
+// Counter operations
 router.post('/:id/increment', incrementCounter);
+router.post('/:id/undo', undoCounter);
+router.post('/:id/frog', frogByAmount);
 
 export default router;

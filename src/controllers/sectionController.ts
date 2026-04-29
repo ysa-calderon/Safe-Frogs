@@ -192,52 +192,140 @@ export const deleteSection = async (req: AuthRequest, res: Response) => {
     }
 };
 
-// Increment counter (row or stitch)
+// Increment counter (row or stitch) with optional batch amount
 export const incrementCounter = async (req: AuthRequest, res: Response) => {
-    const { id } = req.params;
-    const { type } = req.body; // 'row' or 'stitch'
+  const { id } = req.params;
+  const { type, amount } = req.body; // 'row' or 'stitch', amount defaults to 1
 
-    try {
-        // Get current section
-        const sectionResult = await pool.query(
-            'select s.* '
-            + 'from sections s '
-            + 'join projects p on s.project_id = p.id '
-            + 'where s.id = $1 and p.user_id = $2',
-            [id, req.userId]
-        );
+  try {
+    // Get current section
+    const sectionResult = await pool.query(
+      `select s.* from sections s
+       join projects p on s.project_id = p.id
+       where s.id = $1 and p.user_id = $2`,
+      [id, req.userId]
+    );
 
-        if (sectionResult.rows.length === 0) {
-            return res.status(404).json({ error: 'Section not found' });
-        }
-
-        const section = sectionResult.rows[0];
-
-        if (type === 'row') {
-            // Increment row
-            const newRow = section.current_row + 1;
-
-            if (newRow > section.total_rows) {
-                return res.status(400).json({ error: 'Cannot exceed total rows' });
-            }
-
-            const result = await pool.query(
-                'update sections '
-                + 'set current_row = $1, updated_at = now() '
-                + 'where id = $2 '
-                + 'returning *',
-                [newRow, id]
-            );
-
-            res.json({
-                message: 'Row incremented',
-                section: result.rows[0],
-            });
-        } else {
-            return res.status(400).json({ error: 'Invalid increment type' });
-        }
-    } catch (error) {
-        console.error('Increment counter error:', error);
-        res.status(500).json({ error: 'Server error incrementing counter' });
+    if (sectionResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Section not found' });
     }
+
+    const section = sectionResult.rows[0];
+    const incrementAmount = amount || 1; // Default to 1 if not provided
+
+    if (type === 'row') {
+      // Increment row by amount
+      const newRow = section.current_row + incrementAmount;
+
+      if (newRow > section.total_rows) {
+        return res.status(400).json({ error: 'Cannot exceed total rows' });
+      }
+
+      const result = await pool.query(
+        'update sections set current_row = $1, updated_at = now() where id = $2 returning *',
+        [newRow, id]
+      );
+
+      res.json({
+        message: `Row incremented by ${incrementAmount}`,
+        section: result.rows[0],
+      });
+    } else {
+      return res.status(400).json({ error: 'Invalid increment type' });
+    }
+  } catch (error) {
+    console.error('Increment counter error:', error);
+    res.status(500).json({ error: 'Server error incrementing counter' });
+  }
+};
+
+// Undo - decrement counter by 1
+export const undoCounter = async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const { type } = req.body; // 'row' or 'stitch'
+
+  try {
+    // Get current section
+    const sectionResult = await pool.query(
+      `select s.* from sections s
+       join projects p on s.project_id = p.id
+       where s.id = $1 and p.user_id = $2`,
+      [id, req.userId]
+    );
+
+    if (sectionResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Section not found' });
+    }
+
+    const section = sectionResult.rows[0];
+
+    if (type === 'row') {
+      // Decrement row by 1
+      const newRow = section.current_row - 1;
+
+      if (newRow < 0) {
+        return res.status(400).json({ error: 'Cannot go below 0 rows' });
+      }
+
+      const result = await pool.query(
+        'update sections set current_row = $1, updated_at = now() where id = $2 returning *',
+        [newRow, id]
+      );
+
+      res.json({
+        message: 'Row decremented by 1',
+        section: result.rows[0],
+      });
+    } else {
+      return res.status(400).json({ error: 'Invalid undo type' });
+    }
+  } catch (error) {
+    console.error('Undo counter error:', error);
+    res.status(500).json({ error: 'Server error undoing counter' });
+  }
+};
+
+// Frog back by custom amount (without needing a lifeline)
+export const frogByAmount = async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const { rows } = req.body; // Number of rows to go back
+
+  try {
+    // Get current section
+    const sectionResult = await pool.query(
+      `select s.* from sections s
+       join projects p on s.project_id = p.id
+       where s.id = $1 and p.user_id = $2`,
+      [id, req.userId]
+    );
+
+    if (sectionResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Section not found' });
+    }
+
+    const section = sectionResult.rows[0];
+
+    if (!rows || rows < 1) {
+      return res.status(400).json({ error: 'Must specify number of rows to frog back' });
+    }
+
+    const newRow = section.current_row - rows;
+
+    if (newRow < 0) {
+      return res.status(400).json({ error: 'Cannot go below 0 rows' });
+    }
+
+    const result = await pool.query(
+      'update sections set current_row = $1, updated_at = now() where id = $2 returning *',
+      [newRow, id]
+    );
+
+    res.json({
+      message: `Frogged back ${rows} rows`,
+      section: result.rows[0],
+    });
+  } catch (error) {
+    console.error('Frog by amount error:', error);
+    res.status(500).json({ error: 'Server error frogging' });
+  }
 };
