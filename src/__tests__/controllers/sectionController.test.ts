@@ -232,7 +232,7 @@ describe('Section Controller', () => {
         .send({ type: 'row' });
 
       expect(res.status).toBe(200);
-      expect(res.body.message).toBe('Row incremented');
+      expect(res.body.message).toBe('Row incremented by 1');
       expect(res.body.section).toHaveProperty('current_row', 6);
     });
 
@@ -319,6 +319,235 @@ describe('Section Controller', () => {
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(getRes.status).toBe(404);
+    });
+  });
+
+  describe('POST /api/sections/:id/increment with batch amount', () => {
+    it('should increment row by custom amount', async () => {
+      // Create a fresh section for this test
+      const sectionRes = await request(app)
+        .post(`/api/sections/project/${projectId}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          name: 'Batch Test Section',
+          starting_stitches: 50,
+          total_rows: 50,
+        });
+
+      const testSectionId = sectionRes.body.section.id;
+
+      // Increment by 5
+      const res = await request(app)
+        .post(`/api/sections/${testSectionId}/increment`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ type: 'row', amount: 5 });
+
+      expect(res.status).toBe(200);
+      expect(res.body.message).toBe('Row incremented by 5');
+      expect(res.body.section.current_row).toBe(5);
+    });
+
+    it('should default to incrementing by 1 if amount not provided', async () => {
+      // Create a section at row 5
+      const sectionRes = await request(app)
+        .post(`/api/sections/project/${projectId}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          name: 'Default Increment Section',
+          starting_stitches: 50,
+          total_rows: 50,
+        });
+
+      const testSectionId = sectionRes.body.section.id;
+
+      // Set to row 5 first
+      await request(app)
+        .post(`/api/sections/${testSectionId}/increment`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ type: 'row', amount: 5 });
+
+      // Increment without amount (should be +1)
+      const res = await request(app)
+        .post(`/api/sections/${testSectionId}/increment`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ type: 'row' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.section.current_row).toBe(6);
+    });
+  });
+
+  describe('POST /api/sections/:id/undo', () => {
+    it('should decrement row by 1', async () => {
+      // Create a section at row 5
+      const sectionRes = await request(app)
+        .post(`/api/sections/project/${projectId}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          name: 'Undo Test Section',
+          starting_stitches: 50,
+          total_rows: 50,
+        });
+
+      const testSectionId = sectionRes.body.section.id;
+
+      // Increment to row 5
+      await request(app)
+        .post(`/api/sections/${testSectionId}/increment`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ type: 'row', amount: 5 });
+
+      // Undo once
+      const res = await request(app)
+        .post(`/api/sections/${testSectionId}/undo`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ type: 'row' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.message).toBe('Row decremented by 1');
+      expect(res.body.section.current_row).toBe(4);
+    });
+
+    it('should not go below 0 rows', async () => {
+      // Create a section at row 0
+      const sectionRes = await request(app)
+        .post(`/api/sections/project/${projectId}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          name: 'Zero Row Section',
+          starting_stitches: 50,
+          total_rows: 50,
+        });
+
+      const testSectionId = sectionRes.body.section.id;
+
+      // Try to undo when at row 0
+      const res = await request(app)
+        .post(`/api/sections/${testSectionId}/undo`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ type: 'row' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('Cannot go below 0 rows');
+    });
+
+    it('should return 404 for non-existent section', async () => {
+      const res = await request(app)
+        .post('/api/sections/99999/undo')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ type: 'row' });
+
+      expect(res.status).toBe(404);
+      expect(res.body.error).toBe('Section not found');
+    });
+
+    it('should return 401 without auth token', async () => {
+      const res = await request(app)
+        .post(`/api/sections/${sectionId}/undo`)
+        .send({ type: 'row' });
+
+      expect(res.status).toBe(401);
+    });
+  });
+
+  describe('POST /api/sections/:id/frog', () => {
+    it('should frog back by custom amount', async () => {
+      // Create a section at row 10
+      const sectionRes = await request(app)
+        .post(`/api/sections/project/${projectId}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          name: 'Frog Test Section',
+          starting_stitches: 50,
+          total_rows: 50,
+        });
+
+      const testSectionId = sectionRes.body.section.id;
+
+      // Increment to row 10
+      await request(app)
+        .post(`/api/sections/${testSectionId}/increment`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ type: 'row', amount: 10 });
+
+      // Frog back 3 rows
+      const res = await request(app)
+        .post(`/api/sections/${testSectionId}/frog`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ rows: 3 });
+
+      expect(res.status).toBe(200);
+      expect(res.body.message).toBe('Frogged back 3 rows');
+      expect(res.body.section.current_row).toBe(7);
+    });
+
+    it('should not go below 0 rows when frogging', async () => {
+      // Create a section at row 2
+      const sectionRes = await request(app)
+        .post(`/api/sections/project/${projectId}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          name: 'Frog Limit Section',
+          starting_stitches: 50,
+          total_rows: 50,
+        });
+
+      const testSectionId = sectionRes.body.section.id;
+
+      // Increment to row 2
+      await request(app)
+        .post(`/api/sections/${testSectionId}/increment`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ type: 'row', amount: 2 });
+
+      // Try to frog back 5 rows (would go negative)
+      const res = await request(app)
+        .post(`/api/sections/${testSectionId}/frog`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ rows: 5 });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('Cannot go below 0 rows');
+    });
+
+    it('should return 400 if rows not specified', async () => {
+      // Create a fresh section for this test
+      const sectionRes = await request(app)
+        .post(`/api/sections/project/${projectId}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          name: 'Test Section for validation',
+          starting_stitches: 50,
+          total_rows: 50,
+        });
+
+      const testSectionId = sectionRes.body.section.id;
+
+      const res = await request(app)
+        .post(`/api/sections/${testSectionId}/frog`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({});
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('Must specify number of rows to frog back');
+    });
+
+    it('should return 404 for non-existent section', async () => {
+      const res = await request(app)
+        .post('/api/sections/99999/frog')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ rows: 3 });
+
+      expect(res.status).toBe(404);
+      expect(res.body.error).toBe('Section not found');
+    });
+
+    it('should return 401 without auth token', async () => {
+      const res = await request(app)
+        .post(`/api/sections/${sectionId}/frog`)
+        .send({ rows: 3 });
+
+      expect(res.status).toBe(401);
     });
   });
 });
